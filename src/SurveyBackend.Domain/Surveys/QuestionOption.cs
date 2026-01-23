@@ -42,4 +42,17 @@ public class QuestionOption : CommonEntity
         DependentQuestions.Add(dependentQuestion);
         return dependentQuestion;
     }
+
+    /// <summary>
+    /// Updates text of the option. Safe to call on published surveys.
+    /// </summary>
+    public void UpdateText(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            throw new ArgumentException("Question option text cannot be empty.", nameof(text));
+        }
+
+        Text = text.Trim();
+    }
 }

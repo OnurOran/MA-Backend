@@ -12,6 +12,7 @@ public sealed record SurveyDetailDto(
     string? ConsentText,
     string? OutroText,
     AccessType AccessType,
+    bool IsPublished,
     DateTime? StartDate,
     DateTime? EndDate,
     IReadOnlyCollection<SurveyQuestionDetailDto> Questions,

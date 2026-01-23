@@ -55,6 +55,34 @@ public sealed class AddQuestionCommandHandler : ICommandHandler<AddQuestionComma
             throw new InvalidOperationException("Dosya tipi kısıtı sadece dosya yükleme soruları için geçerlidir.");
         }
 
+        // Conditional question validation
+        if (questionDto.Type == QuestionType.Conditional)
+        {
+            if (questionDto.Options is null || questionDto.Options.Count < 2 || questionDto.Options.Count > 5)
+            {
+                throw new InvalidOperationException("Koşullu sorular 2 ile 5 arasında seçenek içermelidir.");
+            }
+            if (questionDto.ChildQuestions is not null)
+            {
+                foreach (var childDto in questionDto.ChildQuestions)
+                {
+                    if (childDto.Type == QuestionType.Conditional)
+                    {
+                        throw new InvalidOperationException("Alt sorular Koşullu tip olamaz.");
+                    }
+                }
+            }
+        }
+
+        // SingleSelect/MultiSelect validation
+        if (questionDto.Type == QuestionType.SingleSelect || questionDto.Type == QuestionType.MultiSelect)
+        {
+            if (questionDto.Options is null || questionDto.Options.Count < 2 || questionDto.Options.Count > 10)
+            {
+                throw new InvalidOperationException("Tek seçim ve çoklu seçim soruları 2 ile 10 arasında seçenek içermelidir.");
+            }
+        }
+
         // Matrix question validation
         if (questionDto.Type == QuestionType.Matrix)
         {
@@ -100,7 +128,14 @@ public sealed class AddQuestionCommandHandler : ICommandHandler<AddQuestionComma
             question.SetMatrixExplanationSettings(questionDto.MatrixShowExplanation, questionDto.MatrixExplanationLabel);
         }
 
+        var questionAttachmentQueue = new List<(Question Question, AttachmentUploadDto Attachment)>();
         var optionAttachmentQueue = new List<(QuestionOption Option, AttachmentUploadDto Attachment)>();
+
+        if (questionDto.Attachment is not null)
+        {
+            questionAttachmentQueue.Add((question, questionDto.Attachment));
+        }
+
         if (questionDto.Options is not null)
         {
             foreach (var option in questionDto.Options)
@@ -113,17 +148,58 @@ public sealed class AddQuestionCommandHandler : ICommandHandler<AddQuestionComma
             }
         }
 
+        // Handle Conditional question child questions
+        if (questionDto.Type == QuestionType.Conditional && questionDto.ChildQuestions is not null)
+        {
+            foreach (var childDto in questionDto.ChildQuestions)
+            {
+                var parentOption = question.Options.FirstOrDefault(o => o.Order == childDto.ParentOptionOrder);
+                if (parentOption is null)
+                {
+                    throw new InvalidOperationException($"Seçenek sırası {childDto.ParentOptionOrder} bulunamadı.");
+                }
+
+                var childQuestion = survey.AddQuestion(childDto.Text, childDto.Type, childDto.Order, childDto.IsRequired);
+
+                if (childDto.Type == QuestionType.FileUpload)
+                {
+                    var normalizedAllowed = NormalizeAllowedContentTypes(childDto.AllowedAttachmentContentTypes);
+                    childQuestion.SetAllowedAttachmentContentTypes(normalizedAllowed);
+                }
+
+                if (childDto.Attachment is not null)
+                {
+                    questionAttachmentQueue.Add((childQuestion, childDto.Attachment));
+                }
+
+                if (childDto.Options is not null)
+                {
+                    foreach (var childOptionDto in childDto.Options)
+                    {
+                        var childOption = childQuestion.AddOption(childOptionDto.Text, childOptionDto.Order, childOptionDto.Value);
+                        if (childOptionDto.Attachment is not null)
+                        {
+                            optionAttachmentQueue.Add((childOption, childOptionDto.Attachment));
+                        }
+                    }
+                }
+
+                parentOption.AddDependentQuestion(childQuestion.Id);
+            }
+        }
+
         await _surveyRepository.UpdateAsync(survey, cancellationToken);
 
-        if (questionDto.Attachment is not null)
+        foreach (var pair in questionAttachmentQueue)
         {
-            await _attachmentService.SaveQuestionAttachmentAsync(survey, question, questionDto.Attachment, cancellationToken);
+            await _attachmentService.SaveQuestionAttachmentAsync(survey, pair.Question, pair.Attachment, cancellationToken);
         }
 
         foreach (var pair in optionAttachmentQueue)
         {
             await _attachmentService.SaveOptionAttachmentAsync(survey, pair.Option, pair.Attachment, cancellationToken);
         }
+
         return question.Id;
     }
 

@@ -51,6 +51,7 @@ public sealed class GetSurveyQueryHandler : ICommandHandler<GetSurveyQuery, Surv
             survey.ConsentText,
             survey.OutroText,
             survey.AccessType,
+            survey.IsPublished,
             survey.StartDate,
             survey.EndDate,
             questions,

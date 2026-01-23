@@ -34,39 +34,49 @@ public sealed class SubmitAnswerCommandHandler : ICommandHandler<SubmitAnswerCom
 
         if (question.Type == QuestionType.FileUpload)
         {
-            if (request.Attachment is null)
+            // Only require attachment if the question is mandatory
+            if (question.IsRequired && request.Attachment is null)
             {
                 throw new InvalidOperationException("Bu soru için dosya yüklenmesi gereklidir.");
             }
 
-            if (!string.IsNullOrWhiteSpace(request.TextValue) || (request.OptionIds is not null && request.OptionIds.Count > 0))
+            // If attachment is provided, ensure no other answer types are sent
+            if (request.Attachment is not null)
             {
-                throw new InvalidOperationException("Dosya yükleme sorusu için metin veya seçenek gönderilemez.");
+                if (!string.IsNullOrWhiteSpace(request.TextValue) || (request.OptionIds is not null && request.OptionIds.Count > 0))
+                {
+                    throw new InvalidOperationException("Dosya yükleme sorusu için metin veya seçenek gönderilemez.");
+                }
             }
         }
         else if (question.Type == QuestionType.Matrix)
         {
-            if (request.MatrixAnswers is null || request.MatrixAnswers.Count == 0)
+            // Only require matrix answers if the question is mandatory
+            if (question.IsRequired && (request.MatrixAnswers is null || request.MatrixAnswers.Count == 0))
             {
                 throw new InvalidOperationException("Matrix sorusu için en az bir cevap gereklidir.");
             }
 
-            foreach (var matrixAnswer in request.MatrixAnswers)
+            // Validate matrix answers if provided
+            if (request.MatrixAnswers is not null && request.MatrixAnswers.Count > 0)
             {
-                if (matrixAnswer.ScaleValue < 1 || matrixAnswer.ScaleValue > 5)
+                foreach (var matrixAnswer in request.MatrixAnswers)
                 {
-                    throw new InvalidOperationException("Matrix ölçek değeri 1-5 arasında olmalıdır.");
+                    if (matrixAnswer.ScaleValue < 1 || matrixAnswer.ScaleValue > 5)
+                    {
+                        throw new InvalidOperationException("Matrix ölçek değeri 1-5 arasında olmalıdır.");
+                    }
+
+                    if (question.MatrixShowExplanation && matrixAnswer.ScaleValue <= 2 && string.IsNullOrWhiteSpace(matrixAnswer.Explanation))
+                    {
+                        throw new InvalidOperationException("Düşük puanlarda açıklama zorunludur.");
+                    }
                 }
 
-                if (question.MatrixShowExplanation && matrixAnswer.ScaleValue <= 2 && string.IsNullOrWhiteSpace(matrixAnswer.Explanation))
+                if (!string.IsNullOrWhiteSpace(request.TextValue) || (request.OptionIds is not null && request.OptionIds.Count > 0) || request.Attachment is not null)
                 {
-                    throw new InvalidOperationException("Düşük puanlarda açıklama zorunludur.");
+                    throw new InvalidOperationException("Matrix sorusu için yalnızca matrix cevapları gönderilebilir.");
                 }
-            }
-
-            if (!string.IsNullOrWhiteSpace(request.TextValue) || (request.OptionIds is not null && request.OptionIds.Count > 0) || request.Attachment is not null)
-            {
-                throw new InvalidOperationException("Matrix sorusu için yalnızca matrix cevapları gönderilebilir.");
             }
         }
         else if (request.Attachment is not null)

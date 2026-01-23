@@ -12,13 +12,10 @@ public sealed class SubmitAnswerCommandValidator : AbstractValidator<SubmitAnswe
         RuleFor(x => x.QuestionId)
             .NotEmpty();
 
-        RuleFor(x => x)
-            .Must(x =>
-                !string.IsNullOrWhiteSpace(x.TextValue) ||
-                (x.OptionIds is not null && x.OptionIds.Any()) ||
-                x.Attachment is not null ||
-                (x.MatrixAnswers is not null && x.MatrixAnswers.Any()))
-            .WithMessage("At least one answer (text, options, attachment, or matrix answers) must be provided.");
+        // Note: We don't validate "at least one answer" here because:
+        // - Required question validation is handled in the handler (which has access to question.IsRequired)
+        // - Non-required questions can have empty answers
+        // - The frontend now skips submission entirely for non-required questions with no answer
 
         RuleFor(x => x.TextValue)
             .MaximumLength(MaxTextAnswerLength)

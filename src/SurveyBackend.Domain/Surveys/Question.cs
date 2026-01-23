@@ -110,4 +110,32 @@ public class Question : CommonEntity
             MatrixScale5Label ?? string.Empty
         };
     }
+
+    /// <summary>
+    /// Updates text-based properties of the question. Safe to call on published surveys.
+    /// </summary>
+    public void UpdateTextContent(string text, string? description, bool isRequired)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            throw new ArgumentException("Question text cannot be empty.", nameof(text));
+        }
+
+        Text = text.Trim();
+        Description = description?.Trim();
+        IsRequired = isRequired;
+    }
+
+    /// <summary>
+    /// Updates Matrix scale labels. Safe to call on published surveys.
+    /// </summary>
+    public void UpdateMatrixLabels(string scale1, string scale2, string scale3, string scale4, string scale5, string? explanationLabel)
+    {
+        MatrixScale1Label = scale1?.Trim();
+        MatrixScale2Label = scale2?.Trim();
+        MatrixScale3Label = scale3?.Trim();
+        MatrixScale4Label = scale4?.Trim();
+        MatrixScale5Label = scale5?.Trim();
+        MatrixExplanationLabel = explanationLabel?.Trim();
+    }
 }

@@ -46,13 +46,14 @@ public sealed class UpdateSurveyCommandHandler : ICommandHandler<UpdateSurveyCom
         var existing = await _surveyRepository.GetByIdAsync(request.SurveyId, cancellationToken)
                       ?? throw new InvalidOperationException("Anket bulunamadı.");
 
-        if (existing.IsPublished)
-        {
-            throw new InvalidOperationException("Yayınlanmış anketler düzenlenemez.");
-        }
-
         var departmentId = existing.DepartmentId;
         await _authorizationService.EnsureDepartmentScopeAsync(departmentId, cancellationToken);
+
+        // For published surveys, only allow text and isRequired changes
+        if (existing.IsPublished)
+        {
+            return await HandlePublishedSurveyUpdateAsync(existing, request, cancellationToken);
+        }
 
         var replacement = Survey.Create(
             existing.Slug,
@@ -291,5 +292,138 @@ public sealed class UpdateSurveyCommandHandler : ICommandHandler<UpdateSurveyCom
             .ToList();
 
         return list.Count > 0 ? list : null;
+    }
+
+    /// <summary>
+    /// Handles limited updates for published surveys.
+    /// Only allows changing: survey metadata, question text/isRequired, option text, matrix labels.
+    /// Does NOT allow: adding/removing questions, adding/removing options, changing types/order.
+    /// </summary>
+    private async Task<bool> HandlePublishedSurveyUpdateAsync(Survey existing, UpdateSurveyCommand request, CancellationToken cancellationToken)
+    {
+        // Validate structure hasn't changed
+        if (request.Questions is null)
+        {
+            throw new InvalidOperationException("Yayınlanmış anketlerde soru listesi boş olamaz.");
+        }
+
+        // Get all questions including child questions for comparison
+        var existingTopLevelQuestions = existing.Questions
+            .Where(q => !existing.Questions
+                .SelectMany(pq => pq.Options)
+                .SelectMany(o => o.DependentQuestions)
+                .Select(dq => dq.ChildQuestionId)
+                .Contains(q.Id))
+            .OrderBy(q => q.Order)
+            .ToList();
+
+        var requestTopLevelQuestions = request.Questions.OrderBy(q => q.Order).ToList();
+
+        if (existingTopLevelQuestions.Count != requestTopLevelQuestions.Count)
+        {
+            throw new InvalidOperationException("Yayınlanmış anketlerde soru sayısı değiştirilemez.");
+        }
+
+        // Update survey metadata
+        existing.Update(request.Title, request.Description, request.IntroText, request.ConsentText, request.OutroText, request.AccessType);
+
+        // Update each question
+        for (int i = 0; i < existingTopLevelQuestions.Count; i++)
+        {
+            var existingQuestion = existingTopLevelQuestions[i];
+            var requestQuestion = requestTopLevelQuestions[i];
+
+            // Validate type hasn't changed
+            if (existingQuestion.Type != requestQuestion.Type)
+            {
+                throw new InvalidOperationException($"Yayınlanmış anketlerde soru tipi değiştirilemez (Soru {i + 1}).");
+            }
+
+            // Update question text and isRequired
+            existingQuestion.UpdateTextContent(requestQuestion.Text, null, requestQuestion.IsRequired);
+
+            // Update Matrix labels if applicable
+            if (existingQuestion.Type == QuestionType.Matrix && requestQuestion.MatrixScaleLabels is not null)
+            {
+                if (requestQuestion.MatrixScaleLabels.Count == 5)
+                {
+                    existingQuestion.UpdateMatrixLabels(
+                        requestQuestion.MatrixScaleLabels[0],
+                        requestQuestion.MatrixScaleLabels[1],
+                        requestQuestion.MatrixScaleLabels[2],
+                        requestQuestion.MatrixScaleLabels[3],
+                        requestQuestion.MatrixScaleLabels[4],
+                        requestQuestion.MatrixExplanationLabel
+                    );
+                }
+            }
+
+            // Update options
+            if (requestQuestion.Options is not null)
+            {
+                var existingOptions = existingQuestion.Options.OrderBy(o => o.Order).ToList();
+                var requestOptions = requestQuestion.Options.OrderBy(o => o.Order).ToList();
+
+                if (existingOptions.Count != requestOptions.Count)
+                {
+                    throw new InvalidOperationException($"Yayınlanmış anketlerde seçenek sayısı değiştirilemez (Soru {i + 1}).");
+                }
+
+                for (int j = 0; j < existingOptions.Count; j++)
+                {
+                    existingOptions[j].UpdateText(requestOptions[j].Text);
+                }
+            }
+
+            // Handle child questions for Conditional type
+            if (existingQuestion.Type == QuestionType.Conditional && requestQuestion.ChildQuestions is not null)
+            {
+                var existingChildQuestions = existingQuestion.Options
+                    .SelectMany(o => o.DependentQuestions)
+                    .Select(dq => dq.ChildQuestion)
+                    .OrderBy(cq => cq.Order)
+                    .ToList();
+
+                var requestChildQuestions = requestQuestion.ChildQuestions.OrderBy(cq => cq.Order).ToList();
+
+                if (existingChildQuestions.Count != requestChildQuestions.Count)
+                {
+                    throw new InvalidOperationException($"Yayınlanmış anketlerde alt soru sayısı değiştirilemez (Soru {i + 1}).");
+                }
+
+                for (int k = 0; k < existingChildQuestions.Count; k++)
+                {
+                    var existingChild = existingChildQuestions[k];
+                    var requestChild = requestChildQuestions[k];
+
+                    if (existingChild.Type != requestChild.Type)
+                    {
+                        throw new InvalidOperationException($"Yayınlanmış anketlerde alt soru tipi değiştirilemez (Soru {i + 1}, Alt soru {k + 1}).");
+                    }
+
+                    existingChild.UpdateTextContent(requestChild.Text, null, requestChild.IsRequired);
+
+                    // Update child question options
+                    if (requestChild.Options is not null)
+                    {
+                        var existingChildOptions = existingChild.Options.OrderBy(o => o.Order).ToList();
+                        var requestChildOptions = requestChild.Options.OrderBy(o => o.Order).ToList();
+
+                        if (existingChildOptions.Count != requestChildOptions.Count)
+                        {
+                            throw new InvalidOperationException($"Yayınlanmış anketlerde alt soru seçenek sayısı değiştirilemez (Soru {i + 1}, Alt soru {k + 1}).");
+                        }
+
+                        for (int l = 0; l < existingChildOptions.Count; l++)
+                        {
+                            existingChildOptions[l].UpdateText(requestChildOptions[l].Text);
+                        }
+                    }
+                }
+            }
+        }
+
+        await _surveyRepository.UpdateAsync(existing, cancellationToken);
+        return true;
     }
 }
