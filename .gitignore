@@ -1,0 +1,86 @@
+####################################
+# .NET build outputs (ALL OS)
+####################################
+bin/
+obj/
+[Bb]in/
+[Oo]bj/
+**/bin/
+**/obj/
+
+# Windows-backslash named folders (copied from Windows)
+*bin\\*
+*obj\\*
+
+####################################
+# Visual Studio / Rider / VS
+####################################
+.vs/
+.idea/
+.vscode/
+
+*.user
+*.userosscache
+*.suo
+*.sln.docstates
+*.cache
+
+####################################
+# .NET artifacts
+####################################
+*.dll
+*.exe
+*.pdb
+*.mdb
+*.deps.json
+*.runtimeconfig.json
+
+####################################
+# Publish & packages
+####################################
+**/publish/
+*.nupkg
+*.snupkg
+
+####################################
+# Logs & temp
+####################################
+*.log
+debug.log
+*.tmp
+*.swp
+*.bak
+
+####################################
+# OS files
+####################################
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+####################################
+# User secrets / env
+####################################
+.env
+.env.*
+secrets.json
+appsettings.*.local.json
+
+####################################
+# Runtime generated files
+####################################
+wwwroot/uploads/
+wwwroot/temp/
+wwwroot/cache/
+
+####################################
+# Tests
+####################################
+TestResults/
+
+####################################
+# Misc safety
+####################################
+*.old
+*.orig
