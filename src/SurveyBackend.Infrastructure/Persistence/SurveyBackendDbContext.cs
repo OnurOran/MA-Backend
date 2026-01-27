@@ -6,6 +6,7 @@ using SurveyBackend.Domain.Enums;
 using SurveyBackend.Domain.Parameters;
 using SurveyBackend.Domain.Roles;
 using SurveyBackend.Domain.Surveys;
+using SurveyBackend.Domain.TextTemplates;
 using SurveyBackend.Domain.Users;
 using SurveyBackend.Infrastructure.Persistence.Seeds;
 
@@ -36,6 +37,7 @@ public class SurveyBackendDbContext : DbContext
     public DbSet<Attachment> Attachments => Set<Attachment>();
     public DbSet<AnswerAttachment> AnswerAttachments => Set<AnswerAttachment>();
     public DbSet<Parameter> Parameters => Set<Parameter>();
+    public DbSet<TextTemplate> TextTemplates => Set<TextTemplate>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -545,6 +547,28 @@ public class SurveyBackendDbContext : DbContext
             entity.Property(p => p.OrderNo)
                 .IsRequired();
 
+        });
+
+        modelBuilder.Entity<TextTemplate>(entity =>
+        {
+            entity.ToTable("TextTemplate");
+            entity.HasKey(t => t.Id);
+            entity.Property(t => t.Id)
+                .ValueGeneratedOnAdd();
+            entity.Property(t => t.Title)
+                .IsRequired()
+                .HasMaxLength(200);
+            entity.Property(t => t.Content)
+                .IsRequired()
+                .HasMaxLength(4000);
+            entity.Property(t => t.Type)
+                .IsRequired();
+            entity.Property(t => t.DepartmentId)
+                .IsRequired();
+            entity.HasOne<Department>()
+                .WithMany()
+                .HasForeignKey(t => t.DepartmentId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.SeedParameters();

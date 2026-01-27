@@ -95,6 +95,10 @@ public sealed class UpdateSurveyCommandHandler : ICommandHandler<UpdateSurveyCom
                             {
                                 throw new InvalidOperationException("Alt sorular Koşullu tip olamaz.");
                             }
+                            if (childDto.Type == Domain.Enums.QuestionType.Matrix)
+                            {
+                                throw new InvalidOperationException("Alt sorular Matris tip olamaz.");
+                            }
                         }
                     }
                 }
@@ -204,7 +208,7 @@ public sealed class UpdateSurveyCommandHandler : ICommandHandler<UpdateSurveyCom
                             }
                         }
 
-                        parentOption.AddDependentQuestion(childQuestion.Id);
+                        parentOption.AddDependentQuestion(childQuestion);
                     }
                 }
             }

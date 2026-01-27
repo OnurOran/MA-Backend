@@ -70,6 +70,10 @@ public sealed class AddQuestionCommandHandler : ICommandHandler<AddQuestionComma
                     {
                         throw new InvalidOperationException("Alt sorular Koşullu tip olamaz.");
                     }
+                    if (childDto.Type == QuestionType.Matrix)
+                    {
+                        throw new InvalidOperationException("Alt sorular Matris tip olamaz.");
+                    }
                 }
             }
         }
@@ -184,7 +188,7 @@ public sealed class AddQuestionCommandHandler : ICommandHandler<AddQuestionComma
                     }
                 }
 
-                parentOption.AddDependentQuestion(childQuestion.Id);
+                parentOption.AddDependentQuestion(childQuestion);
             }
         }
 

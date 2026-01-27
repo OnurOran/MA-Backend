@@ -2,10 +2,12 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SurveyBackend.Api.Authorization;
 using SurveyBackend.Application.Abstractions.Messaging;
+using SurveyBackend.Application.Interfaces.Export;
 using SurveyBackend.Application.Interfaces.Identity;
 using SurveyBackend.Application.Interfaces.Persistence;
 using SurveyBackend.Application.Surveys.Commands.AddQuestion;
 using SurveyBackend.Application.Surveys.Commands.Create;
+using SurveyBackend.Application.Surveys.Commands.Delete;
 using SurveyBackend.Application.Surveys.Commands.Duplicate;
 using SurveyBackend.Application.Surveys.Commands.Update;
 using SurveyBackend.Application.Surveys.Commands.Publish;
@@ -25,12 +27,14 @@ public class SurveysController : ControllerBase
     private readonly IAppMediator _mediator;
     private readonly ICurrentUserService _currentUserService;
     private readonly ISurveyRepository _surveyRepository;
+    private readonly IExcelExportService _excelExportService;
 
-    public SurveysController(IAppMediator mediator, ICurrentUserService currentUserService, ISurveyRepository surveyRepository)
+    public SurveysController(IAppMediator mediator, ICurrentUserService currentUserService, ISurveyRepository surveyRepository, IExcelExportService excelExportService)
     {
         _mediator = mediator;
         _currentUserService = currentUserService;
         _surveyRepository = surveyRepository;
+        _excelExportService = excelExportService;
     }
 
     [Authorize(Policy = PermissionPolicies.ManageUsers)]
@@ -181,6 +185,15 @@ public class SurveysController : ControllerBase
     }
 
     [Authorize(Policy = PermissionPolicies.ManageUsersOrDepartment)]
+    [HttpDelete("{id:int}")]
+    public async Task<IActionResult> Delete(int id, CancellationToken cancellationToken)
+    {
+        var command = new DeleteSurveyCommand(id);
+        await _mediator.SendAsync<DeleteSurveyCommand, bool>(command, cancellationToken);
+        return NoContent();
+    }
+
+    [Authorize(Policy = PermissionPolicies.ManageUsersOrDepartment)]
     [HttpGet("{id:int}/report")]
     public async Task<ActionResult<SurveyReportDto>> GetReport(int id, [FromQuery] bool includePartial = false, CancellationToken cancellationToken = default)
     {
@@ -192,6 +205,22 @@ public class SurveysController : ControllerBase
         }
 
         return Ok(response);
+    }
+
+    [Authorize(Policy = PermissionPolicies.ManageUsersOrDepartment)]
+    [HttpGet("{id:int}/report/excel")]
+    public async Task<IActionResult> ExportReportExcel(int id, [FromQuery] bool includePartial = false, CancellationToken cancellationToken = default)
+    {
+        var query = new GetSurveyReportQuery(id, includePartial);
+        var report = await _mediator.SendAsync<GetSurveyReportQuery, SurveyReportDto?>(query, cancellationToken);
+        if (report is null)
+        {
+            return NotFound();
+        }
+
+        var bytes = _excelExportService.GenerateSurveyReport(report);
+        var fileName = $"{report.Title}.xlsx";
+        return File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
     }
 
     [Authorize(Policy = PermissionPolicies.ManageUsersOrDepartment)]

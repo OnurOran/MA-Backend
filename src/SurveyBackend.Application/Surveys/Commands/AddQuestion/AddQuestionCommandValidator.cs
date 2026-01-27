@@ -52,6 +52,10 @@ public sealed class AddQuestionCommandValidator : AbstractValidator<AddQuestionC
                                 .NotEqual(QuestionType.Conditional)
                                 .WithMessage("Alt sorular Koşullu tip olamaz.");
 
+                            child.RuleFor(c => c.Type)
+                                .NotEqual(QuestionType.Matrix)
+                                .WithMessage("Alt sorular Matris tip olamaz.");
+
                             // Validate child question options for SingleSelect/MultiSelect
                             child.When(c => c.Type == QuestionType.SingleSelect || c.Type == QuestionType.MultiSelect, () =>
                             {

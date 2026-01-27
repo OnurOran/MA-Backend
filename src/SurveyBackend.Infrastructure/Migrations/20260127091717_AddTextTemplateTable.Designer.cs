@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using SurveyBackend.Infrastructure.Persistence;
 
@@ -11,9 +12,11 @@ using SurveyBackend.Infrastructure.Persistence;
 namespace SurveyBackend.Infrastructure.Migrations
 {
     [DbContext(typeof(SurveyBackendDbContext))]
-    partial class SurveyBackendDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260127091717_AddTextTemplateTable")]
+    partial class AddTextTemplateTable
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

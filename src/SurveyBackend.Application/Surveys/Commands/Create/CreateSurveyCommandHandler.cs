@@ -86,6 +86,10 @@ public sealed class CreateSurveyCommandHandler : ICommandHandler<CreateSurveyCom
                             {
                                 throw new InvalidOperationException("Alt sorular Koşullu tip olamaz.");
                             }
+                            if (childDto.Type == Domain.Enums.QuestionType.Matrix)
+                            {
+                                throw new InvalidOperationException("Alt sorular Matris tip olamaz.");
+                            }
                         }
                     }
                 }
@@ -193,7 +197,7 @@ public sealed class CreateSurveyCommandHandler : ICommandHandler<CreateSurveyCom
                             }
                         }
 
-                        parentOption.AddDependentQuestion(childQuestion.Id);
+                        parentOption.AddDependentQuestion(childQuestion);
                     }
                 }
             }

@@ -123,7 +123,7 @@ public sealed class DuplicateSurveyCommandHandler : ICommandHandler<DuplicateSur
                     // Find the new child question using the mapping
                     if (questionMapping.TryGetValue(dependentQuestion.ChildQuestionId, out var newChildQuestion))
                     {
-                        newOption.AddDependentQuestion(newChildQuestion.Id);
+                        newOption.AddDependentQuestion(newChildQuestion);
                     }
                 }
             }

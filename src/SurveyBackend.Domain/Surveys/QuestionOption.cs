@@ -36,9 +36,9 @@ public class QuestionOption : CommonEntity
         return new QuestionOption(questionId, text.Trim(), order, value);
     }
 
-    public DependentQuestion AddDependentQuestion(int childQuestionId)
+    public DependentQuestion AddDependentQuestion(Question childQuestion)
     {
-        var dependentQuestion = new DependentQuestion(Id, childQuestionId);
+        var dependentQuestion = new DependentQuestion(this, childQuestion);
         DependentQuestions.Add(dependentQuestion);
         return dependentQuestion;
     }

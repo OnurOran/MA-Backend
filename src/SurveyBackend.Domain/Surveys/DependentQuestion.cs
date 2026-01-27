@@ -15,9 +15,9 @@ public class DependentQuestion : CommonEntity
     {
     }
 
-    public DependentQuestion(int parentQuestionOptionId, int childQuestionId)
+    public DependentQuestion(QuestionOption parentOption, Question childQuestion)
     {
-        ParentQuestionOptionId = parentQuestionOptionId;
-        ChildQuestionId = childQuestionId;
+        ParentOption = parentOption;
+        ChildQuestion = childQuestion;
     }
 }
