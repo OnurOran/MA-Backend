@@ -7,13 +7,16 @@ public sealed class CompleteParticipationCommandHandler : ICommandHandler<Comple
 {
     private readonly IParticipationRepository _participationRepository;
     private readonly ISurveyRepository _surveyRepository;
+    private readonly ISurveyInvitationRepository _invitationRepository;
 
     public CompleteParticipationCommandHandler(
         IParticipationRepository participationRepository,
-        ISurveyRepository surveyRepository)
+        ISurveyRepository surveyRepository,
+        ISurveyInvitationRepository invitationRepository)
     {
         _participationRepository = participationRepository;
         _surveyRepository = surveyRepository;
+        _invitationRepository = invitationRepository;
     }
 
     public async Task<bool> HandleAsync(CompleteParticipationCommand request, CancellationToken cancellationToken)
@@ -29,6 +32,18 @@ public sealed class CompleteParticipationCommandHandler : ICommandHandler<Comple
         participation.Complete(DateTime.Now);
 
         await _participationRepository.UpdateAsync(participation, cancellationToken);
+
+        // Mark invitation as completed for invitation-based surveys
+        if (survey.AccessType == AccessType.InvitationOnly)
+        {
+            var invitation = await _invitationRepository.GetByParticipationIdAsync(participation.Id, cancellationToken);
+            if (invitation != null)
+            {
+                invitation.MarkAsCompleted(participation.Id);
+                await _invitationRepository.UpdateAsync(invitation, cancellationToken);
+            }
+        }
+
         return true;
     }
 

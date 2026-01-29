@@ -734,6 +734,9 @@ namespace SurveyBackend.Infrastructure.Migrations
                     b.Property<Guid?>("ExternalId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<int?>("InvitationId")
+                        .HasColumnType("int");
+
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
 
@@ -760,6 +763,8 @@ namespace SurveyBackend.Infrastructure.Migrations
                     b.HasIndex("ExternalId")
                         .IsUnique()
                         .HasFilter("[ExternalId] IS NOT NULL");
+
+                    b.HasIndex("InvitationId");
 
                     b.HasIndex("LdapUsername")
                         .IsUnique()
@@ -1060,6 +1065,93 @@ namespace SurveyBackend.Infrastructure.Migrations
                     b.HasIndex("TypeId");
 
                     b.ToTable("Survey", (string)null);
+                });
+
+            modelBuilder.Entity("SurveyBackend.Domain.Surveys.SurveyInvitation", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("CreateDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreateEmployeeId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("DeliveryMethod")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Email")
+                        .HasMaxLength(254)
+                        .HasColumnType("nvarchar(254)");
+
+                    b.Property<string>("FirstName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsDelete")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("LastName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int?>("ParticipationId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Phone")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<DateTime?>("SentAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<int>("SurveyId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Token")
+                        .IsRequired()
+                        .HasMaxLength(8)
+                        .HasColumnType("nvarchar(8)");
+
+                    b.Property<DateTime?>("UpdateDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("UpdateEmployeeId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ViewedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ParticipationId");
+
+                    b.HasIndex("SurveyId");
+
+                    b.HasIndex("Token")
+                        .IsUnique();
+
+                    b.ToTable("SurveyInvitation", (string)null);
                 });
 
             modelBuilder.Entity("SurveyBackend.Domain.TextTemplates.TextTemplate", b =>
@@ -1383,6 +1475,16 @@ namespace SurveyBackend.Infrastructure.Migrations
                     b.Navigation("ParentOption");
                 });
 
+            modelBuilder.Entity("SurveyBackend.Domain.Surveys.Participant", b =>
+                {
+                    b.HasOne("SurveyBackend.Domain.Surveys.SurveyInvitation", "Invitation")
+                        .WithMany()
+                        .HasForeignKey("InvitationId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Invitation");
+                });
+
             modelBuilder.Entity("SurveyBackend.Domain.Surveys.Participation", b =>
                 {
                     b.HasOne("SurveyBackend.Domain.Surveys.Participant", "Participant")
@@ -1439,6 +1541,24 @@ namespace SurveyBackend.Infrastructure.Migrations
                         .WithMany()
                         .HasForeignKey("TypeId")
                         .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("SurveyBackend.Domain.Surveys.SurveyInvitation", b =>
+                {
+                    b.HasOne("SurveyBackend.Domain.Surveys.Participation", "Participation")
+                        .WithMany()
+                        .HasForeignKey("ParticipationId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("SurveyBackend.Domain.Surveys.Survey", "Survey")
+                        .WithMany()
+                        .HasForeignKey("SurveyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Participation");
+
+                    b.Navigation("Survey");
                 });
 
             modelBuilder.Entity("SurveyBackend.Domain.TextTemplates.TextTemplate", b =>

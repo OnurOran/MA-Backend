@@ -1,5 +1,6 @@
 using SurveyBackend.Application.Interfaces.Identity;
 using SurveyBackend.Application.Interfaces.Persistence;
+using SurveyBackend.Domain.Enums;
 using SurveyBackend.Domain.Surveys;
 
 namespace SurveyBackend.Application.Participations.Commands.StartParticipation;
@@ -9,17 +10,20 @@ public sealed class StartParticipationCommandHandler : ICommandHandler<StartPart
     private readonly ISurveyRepository _surveyRepository;
     private readonly IParticipantRepository _participantRepository;
     private readonly IParticipationRepository _participationRepository;
+    private readonly ISurveyInvitationRepository _invitationRepository;
     private readonly ICurrentUserService _currentUserService;
 
     public StartParticipationCommandHandler(
         ISurveyRepository surveyRepository,
         IParticipantRepository participantRepository,
         IParticipationRepository participationRepository,
+        ISurveyInvitationRepository invitationRepository,
         ICurrentUserService currentUserService)
     {
         _surveyRepository = surveyRepository;
         _participantRepository = participantRepository;
         _participationRepository = participationRepository;
+        _invitationRepository = invitationRepository;
         _currentUserService = currentUserService;
     }
 
@@ -33,7 +37,13 @@ public sealed class StartParticipationCommandHandler : ICommandHandler<StartPart
             throw new InvalidOperationException("Anket şu anda aktif değil.");
         }
 
-        if (survey.AccessType == Domain.Enums.AccessType.Internal && !_currentUserService.IsAuthenticated)
+        // Handle invitation-only surveys
+        if (survey.AccessType == AccessType.InvitationOnly)
+        {
+            return await HandleInvitationParticipationAsync(request, survey, cancellationToken);
+        }
+
+        if (survey.AccessType == AccessType.Internal && !_currentUserService.IsAuthenticated)
         {
             throw new UnauthorizedAccessException("Bu anket yalnızca dahili kullanıcılar için erişilebilir. Lütfen giriş yapın.");
         }
@@ -102,6 +112,70 @@ public sealed class StartParticipationCommandHandler : ICommandHandler<StartPart
         var participation = Participation.Start(survey.Id, participantId, now, request.IpAddress);
 
         await _participationRepository.AddAsync(participation, cancellationToken);
+
+        return participation.Id;
+    }
+
+    private async Task<int> HandleInvitationParticipationAsync(
+        StartParticipationCommand request,
+        Survey survey,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(request.InvitationToken))
+        {
+            throw new InvalidOperationException("Bu anket davetiye bazlıdır. Geçerli bir davetiye kodu gereklidir.");
+        }
+
+        var invitation = await _invitationRepository.GetByTokenAsync(request.InvitationToken, cancellationToken)
+            ?? throw new InvalidOperationException("Geçersiz davetiye kodu.");
+
+        if (invitation.SurveyId != survey.Id)
+        {
+            throw new InvalidOperationException("Davetiye kodu bu anket için geçerli değil.");
+        }
+
+        if (invitation.Status == InvitationStatus.Cancelled)
+        {
+            throw new InvalidOperationException("Bu davetiye iptal edilmiştir.");
+        }
+
+        if (invitation.Status == InvitationStatus.Completed)
+        {
+            throw new InvalidOperationException("Bu davetiye ile zaten katılım sağlanmıştır.");
+        }
+
+        // Check for existing participation
+        if (invitation.ParticipationId.HasValue)
+        {
+            var existingParticipation = await _participationRepository.GetByIdAsync(
+                invitation.ParticipationId.Value,
+                cancellationToken);
+
+            if (existingParticipation != null)
+            {
+                if (existingParticipation.CompletedAt.HasValue)
+                {
+                    throw new InvalidOperationException("Bu anketi zaten tamamladınız. Tekrar katılamazsınız.");
+                }
+
+                return existingParticipation.Id;
+            }
+        }
+
+        var now = DateTime.Now;
+
+        // Create participant from invitation
+        var participant = Participant.CreateFromInvitation(invitation.Id);
+        await _participantRepository.AddAsync(participant, cancellationToken);
+
+        // Create participation
+        var participation = Participation.Start(survey.Id, participant.Id, now, request.IpAddress);
+        await _participationRepository.AddAsync(participation, cancellationToken);
+
+        // Link participation to invitation and mark as viewed
+        invitation.LinkParticipation(participation.Id);
+        invitation.MarkAsViewed();
+        await _invitationRepository.UpdateAsync(invitation, cancellationToken);
 
         return participation.Id;
     }

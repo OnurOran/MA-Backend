@@ -1,16 +1,21 @@
 using SurveyBackend.Application.Interfaces.Export;
 using SurveyBackend.Application.Interfaces.External;
 using SurveyBackend.Application.Interfaces.Files;
+using SurveyBackend.Application.Interfaces.Import;
+using SurveyBackend.Application.Interfaces.Notifications;
 using SurveyBackend.Application.Interfaces.Persistence;
 using SurveyBackend.Application.Interfaces.Security;
 using SurveyBackend.Application.Surveys.Services;
 using SurveyBackend.Infrastructure.Configurations;
 using SurveyBackend.Infrastructure.Directory;
 using SurveyBackend.Infrastructure.Export;
+using SurveyBackend.Infrastructure.Import;
+using SurveyBackend.Infrastructure.Notifications;
 using SurveyBackend.Infrastructure.Persistence;
 using SurveyBackend.Infrastructure.Repositories;
 using SurveyBackend.Infrastructure.Repositories.Authorization;
 using SurveyBackend.Infrastructure.Repositories.Departments;
+using SurveyBackend.Infrastructure.Repositories.Invitations;
 using SurveyBackend.Infrastructure.Repositories.Participations;
 using SurveyBackend.Infrastructure.Repositories.Attachments;
 using SurveyBackend.Infrastructure.Repositories.Surveys;
@@ -41,6 +46,8 @@ public static class InfrastructureServiceRegistration
         services.Configure<JwtSettings>(configuration.GetSection("Jwt"));
         services.Configure<LdapSettings>(configuration.GetSection("Ldap"));
         services.Configure<FileStorageOptions>(configuration.GetSection("FileStorage"));
+        services.Configure<SmtpSettings>(configuration.GetSection("Smtp"));
+        services.Configure<SmsSettings>(configuration.GetSection("Sms"));
 
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
@@ -62,6 +69,11 @@ public static class InfrastructureServiceRegistration
         services.AddScoped<IAttachmentService, AttachmentService>();
         services.AddScoped<AnswerAttachmentService>();
         services.AddScoped<IExcelExportService, ExcelExportService>();
+        services.AddScoped<ISurveyInvitationRepository, SurveyInvitationRepository>();
+        services.AddScoped<ITokenGenerator, InvitationTokenGenerator>();
+        services.AddScoped<IEmailService, SmtpEmailService>();
+        services.AddScoped<ISmsService, JetSmsService>();
+        services.AddScoped<IExcelImportService, ExcelInvitationImportService>();
 
         return services;
     }

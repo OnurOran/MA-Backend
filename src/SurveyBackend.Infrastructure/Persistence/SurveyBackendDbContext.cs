@@ -38,6 +38,7 @@ public class SurveyBackendDbContext : DbContext
     public DbSet<AnswerAttachment> AnswerAttachments => Set<AnswerAttachment>();
     public DbSet<Parameter> Parameters => Set<Parameter>();
     public DbSet<TextTemplate> TextTemplates => Set<TextTemplate>();
+    public DbSet<SurveyInvitation> SurveyInvitations => Set<SurveyInvitation>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -333,6 +334,7 @@ public class SurveyBackendDbContext : DbContext
             entity.Property(p => p.ExternalId);
             entity.Property(p => p.LdapUsername)
                 .HasMaxLength(100);
+            entity.Property(p => p.InvitationId);
 
             entity.HasIndex(p => p.ExternalId)
                 .IsUnique()
@@ -341,6 +343,54 @@ public class SurveyBackendDbContext : DbContext
             entity.HasIndex(p => p.LdapUsername)
                 .IsUnique()
                 .HasFilter("[LdapUsername] IS NOT NULL");
+
+            entity.HasOne(p => p.Invitation)
+                .WithMany()
+                .HasForeignKey(p => p.InvitationId)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<SurveyInvitation>(entity =>
+        {
+            entity.ToTable("SurveyInvitation");
+            entity.HasKey(i => i.Id);
+            entity.Property(i => i.Id)
+                .ValueGeneratedOnAdd();
+
+            entity.Property(i => i.Token)
+                .IsRequired()
+                .HasMaxLength(8);
+            entity.HasIndex(i => i.Token)
+                .IsUnique();
+
+            entity.Property(i => i.FirstName)
+                .IsRequired()
+                .HasMaxLength(100);
+            entity.Property(i => i.LastName)
+                .IsRequired()
+                .HasMaxLength(100);
+            entity.Property(i => i.Email)
+                .HasMaxLength(254);
+            entity.Property(i => i.Phone)
+                .HasMaxLength(20);
+            entity.Property(i => i.DeliveryMethod)
+                .IsRequired();
+            entity.Property(i => i.Status)
+                .IsRequired();
+            entity.Property(i => i.SentAt);
+            entity.Property(i => i.ViewedAt);
+            entity.Property(i => i.CompletedAt);
+            entity.Property(i => i.ParticipationId);
+
+            entity.HasOne(i => i.Survey)
+                .WithMany()
+                .HasForeignKey(i => i.SurveyId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(i => i.Participation)
+                .WithMany()
+                .HasForeignKey(i => i.ParticipationId)
+                .OnDelete(DeleteBehavior.SetNull);
         });
 
         modelBuilder.Entity<Participation>(entity =>

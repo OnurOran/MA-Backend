@@ -9,7 +9,8 @@ public enum SurveyStatus
 public enum AccessType
 {
     Internal,
-    Public
+    Public,
+    InvitationOnly
 }
 
 public enum QuestionType
