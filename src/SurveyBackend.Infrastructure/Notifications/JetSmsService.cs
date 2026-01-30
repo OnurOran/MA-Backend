@@ -1,3 +1,5 @@
+using System.Text;
+using System.Web;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using SurveyBackend.Application.Interfaces.Notifications;
@@ -7,6 +9,13 @@ namespace SurveyBackend.Infrastructure.Notifications;
 
 public sealed class JetSmsService : ISmsService
 {
+    private const string ApiUrl = "https://api.jetsms.com.tr/SMS-Web/HttpSmsSend";
+    private const string Username = "metroweb";
+    private const string Password = "528TC1432tc__*";
+    private const string TransmissionId = "METRO IST";
+
+    private static readonly HttpClient HttpClient = new();
+
     private readonly SmsSettings _settings;
     private readonly ILogger<JetSmsService> _logger;
 
@@ -18,7 +27,7 @@ public sealed class JetSmsService : ISmsService
         _logger = logger;
     }
 
-    public Task SendInvitationSmsAsync(
+    public async Task SendInvitationSmsAsync(
         string phoneNumber,
         string firstName,
         string surveyTitle,
@@ -33,23 +42,39 @@ public sealed class JetSmsService : ISmsService
                 "[DEV MODE] SMS disabled. Would send SMS to {PhoneNumber}: {Message}",
                 phoneNumber,
                 message);
-            return Task.CompletedTask;
+            return;
         }
 
-        if (string.IsNullOrWhiteSpace(_settings.ApiUrl) || string.IsNullOrWhiteSpace(_settings.ApiKey))
+        try
         {
-            _logger.LogWarning(
-                "JetSMS not configured. Cannot send SMS to {PhoneNumber}",
-                phoneNumber);
-            return Task.CompletedTask;
+            var encodedMessage = HttpUtility.UrlEncode(message, Encoding.GetEncoding("iso-8859-9"));
+            var postData = $"Password={Password}&Username={Username}&Msisdns={phoneNumber}&TransmissionID={TransmissionId}&Messages={encodedMessage}";
+            var content = new StringContent(postData, Encoding.GetEncoding("iso-8859-9"), "application/x-www-form-urlencoded");
+
+            var response = await HttpClient.PostAsync(ApiUrl, content, cancellationToken);
+            var responseContent = await response.Content.ReadAsStringAsync(cancellationToken);
+
+            if (response.IsSuccessStatusCode)
+            {
+                _logger.LogInformation(
+                    "SMS sent successfully to {PhoneNumber}. Response: {Response}",
+                    phoneNumber,
+                    responseContent);
+            }
+            else
+            {
+                _logger.LogError(
+                    "Failed to send SMS to {PhoneNumber}. Status: {StatusCode}, Response: {Response}",
+                    phoneNumber,
+                    response.StatusCode,
+                    responseContent);
+                throw new InvalidOperationException($"JetSMS API returned {response.StatusCode}: {responseContent}");
+            }
         }
-
-        // TODO: Implement actual JetSMS API integration when credentials are provided
-        _logger.LogWarning(
-            "JetSMS API integration not implemented. Would send SMS to {PhoneNumber}: {Message}",
-            phoneNumber,
-            message);
-
-        return Task.CompletedTask;
+        catch (Exception ex) when (ex is not InvalidOperationException)
+        {
+            _logger.LogError(ex, "Error sending SMS to {PhoneNumber}", phoneNumber);
+            throw;
+        }
     }
 }
