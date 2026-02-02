@@ -55,6 +55,12 @@ public sealed class CreateInvitationCommandHandler : ICommandHandler<CreateInvit
             {
                 throw new InvalidOperationException("Email gönderim yöntemi için email adresi zorunludur.");
             }
+
+            if (await _invitationRepository.EmailExistsForSurveyAsync(command.SurveyId, command.Email.Trim(), cancellationToken))
+            {
+                throw new InvalidOperationException($"Bu email adresi için zaten bir davetiye mevcut: {command.Email}");
+            }
+
             invitation = SurveyInvitation.CreateForEmail(
                 command.SurveyId,
                 token,
@@ -68,6 +74,12 @@ public sealed class CreateInvitationCommandHandler : ICommandHandler<CreateInvit
             {
                 throw new InvalidOperationException("SMS gönderim yöntemi için telefon numarası zorunludur.");
             }
+
+            if (await _invitationRepository.PhoneExistsForSurveyAsync(command.SurveyId, command.Phone.Trim(), cancellationToken))
+            {
+                throw new InvalidOperationException($"Bu telefon numarası için zaten bir davetiye mevcut: {command.Phone}");
+            }
+
             invitation = SurveyInvitation.CreateForSms(
                 command.SurveyId,
                 token,

@@ -59,9 +59,31 @@ public sealed class ImportInvitationsCommandHandler : ICommandHandler<ImportInvi
 
         var invitations = new List<SurveyInvitation>();
         var usedTokens = new HashSet<string>();
+        var usedEmails = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var usedPhones = new HashSet<string>();
 
         foreach (var row in rows)
         {
+            // Skip duplicates within the import batch and in the database
+            if (row.DeliveryMethod == DeliveryMethod.Email)
+            {
+                var email = row.Email!.Trim();
+                if (usedEmails.Contains(email))
+                    continue;
+                if (await _invitationRepository.EmailExistsForSurveyAsync(command.SurveyId, email, cancellationToken))
+                    continue;
+                usedEmails.Add(email);
+            }
+            else
+            {
+                var phone = row.Phone!.Trim();
+                if (usedPhones.Contains(phone))
+                    continue;
+                if (await _invitationRepository.PhoneExistsForSurveyAsync(command.SurveyId, phone, cancellationToken))
+                    continue;
+                usedPhones.Add(phone);
+            }
+
             var token = await GenerateUniqueTokenAsync(usedTokens, cancellationToken);
             usedTokens.Add(token);
 
@@ -88,7 +110,10 @@ public sealed class ImportInvitationsCommandHandler : ICommandHandler<ImportInvi
             invitations.Add(invitation);
         }
 
-        await _invitationRepository.AddRangeAsync(invitations, cancellationToken);
+        if (invitations.Count > 0)
+        {
+            await _invitationRepository.AddRangeAsync(invitations, cancellationToken);
+        }
 
         return invitations.Count;
     }

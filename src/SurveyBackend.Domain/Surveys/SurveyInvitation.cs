@@ -162,6 +162,17 @@ public class SurveyInvitation : CommonEntity
         Status = InvitationStatus.Cancelled;
     }
 
+    public void ResetToPending()
+    {
+        if (Status == InvitationStatus.Completed || Status == InvitationStatus.Cancelled)
+        {
+            throw new InvalidOperationException("Cannot reset a completed or cancelled invitation.");
+        }
+
+        Status = InvitationStatus.Pending;
+        SentAt = null;
+    }
+
     public void LinkParticipation(int participationId)
     {
         ParticipationId = participationId;

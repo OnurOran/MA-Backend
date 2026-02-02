@@ -49,10 +49,30 @@ public sealed class SurveyInvitationRepository : ISurveyInvitationRepository
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<IReadOnlyList<SurveyInvitation>> GetSentBySurveyIdAsync(int surveyId, CancellationToken cancellationToken)
+    {
+        return await _context.SurveyInvitations
+            .Where(i => i.SurveyId == surveyId && i.Status == InvitationStatus.Sent)
+            .OrderBy(i => i.CreateDate)
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<bool> TokenExistsAsync(string token, CancellationToken cancellationToken)
     {
         return await _context.SurveyInvitations
             .AnyAsync(i => i.Token == token, cancellationToken);
+    }
+
+    public async Task<bool> EmailExistsForSurveyAsync(int surveyId, string email, CancellationToken cancellationToken)
+    {
+        return await _context.SurveyInvitations
+            .AnyAsync(i => i.SurveyId == surveyId && i.Email == email && i.Status != InvitationStatus.Cancelled, cancellationToken);
+    }
+
+    public async Task<bool> PhoneExistsForSurveyAsync(int surveyId, string phone, CancellationToken cancellationToken)
+    {
+        return await _context.SurveyInvitations
+            .AnyAsync(i => i.SurveyId == surveyId && i.Phone == phone && i.Status != InvitationStatus.Cancelled, cancellationToken);
     }
 
     public async Task<SurveyInvitation?> GetByParticipationIdAsync(int participationId, CancellationToken cancellationToken)

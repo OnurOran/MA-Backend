@@ -9,7 +9,10 @@ public interface ISurveyInvitationRepository
     Task<SurveyInvitation?> GetByTokenAsync(string token, CancellationToken cancellationToken);
     Task<IReadOnlyList<SurveyInvitation>> GetBySurveyIdAsync(int surveyId, CancellationToken cancellationToken);
     Task<IReadOnlyList<SurveyInvitation>> GetPendingBySurveyIdAsync(int surveyId, CancellationToken cancellationToken);
+    Task<IReadOnlyList<SurveyInvitation>> GetSentBySurveyIdAsync(int surveyId, CancellationToken cancellationToken);
     Task<bool> TokenExistsAsync(string token, CancellationToken cancellationToken);
+    Task<bool> EmailExistsForSurveyAsync(int surveyId, string email, CancellationToken cancellationToken);
+    Task<bool> PhoneExistsForSurveyAsync(int surveyId, string phone, CancellationToken cancellationToken);
     Task<SurveyInvitation?> GetByParticipationIdAsync(int participationId, CancellationToken cancellationToken);
     Task AddAsync(SurveyInvitation invitation, CancellationToken cancellationToken);
     Task AddRangeAsync(IEnumerable<SurveyInvitation> invitations, CancellationToken cancellationToken);
