@@ -10,15 +10,18 @@ public sealed class GetParticipantResponseQueryHandler : ICommandHandler<GetPart
 {
     private readonly ISurveyRepository _surveyRepository;
     private readonly IParticipationRepository _participationRepository;
+    private readonly ISurveyInvitationRepository _invitationRepository;
     private readonly ICurrentUserService _currentUserService;
 
     public GetParticipantResponseQueryHandler(
         ISurveyRepository surveyRepository,
         IParticipationRepository participationRepository,
+        ISurveyInvitationRepository invitationRepository,
         ICurrentUserService currentUserService)
     {
         _surveyRepository = surveyRepository;
         _participationRepository = participationRepository;
+        _invitationRepository = invitationRepository;
         _currentUserService = currentUserService;
     }
 
@@ -30,7 +33,7 @@ public sealed class GetParticipantResponseQueryHandler : ICommandHandler<GetPart
             return null;
         }
 
-        if (survey.AccessType != AccessType.Internal)
+        if (survey.AccessType != AccessType.Internal && survey.AccessType != AccessType.InvitationOnly)
         {
             return null;
         }
@@ -45,6 +48,27 @@ public sealed class GetParticipantResponseQueryHandler : ICommandHandler<GetPart
         if (participation is null || participation.SurveyId != request.SurveyId)
         {
             return null;
+        }
+
+        // Resolve participant name based on access type
+        string? participantName = null;
+        if (survey.AccessType == AccessType.Internal)
+        {
+            participantName = participation.Participant?.LdapUsername;
+        }
+        else if (survey.AccessType == AccessType.InvitationOnly)
+        {
+            var invitations = await _invitationRepository.GetBySurveyIdAsync(request.SurveyId, cancellationToken);
+            var invitation = invitations.FirstOrDefault(i => i.ParticipationId == participation.Id);
+            if (invitation != null)
+            {
+                participantName = invitation.GetFullName();
+            }
+            else if (participation.Participant?.InvitationId.HasValue == true)
+            {
+                var linkedInvitation = invitations.FirstOrDefault(i => i.Id == participation.Participant.InvitationId.Value);
+                participantName = linkedInvitation?.GetFullName();
+            }
         }
 
         var answers = participation.Answers
@@ -79,7 +103,7 @@ public sealed class GetParticipantResponseQueryHandler : ICommandHandler<GetPart
         return new ParticipantResponseDto
         {
             ParticipationId = participation.Id,
-            ParticipantName = participation.Participant?.LdapUsername,
+            ParticipantName = participantName,
             IsCompleted = participation.CompletedAt.HasValue,
             StartedAt = participation.StartedAt,
             CompletedAt = participation.CompletedAt,
