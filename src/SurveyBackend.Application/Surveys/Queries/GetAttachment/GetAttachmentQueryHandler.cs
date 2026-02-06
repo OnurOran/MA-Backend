@@ -1,3 +1,4 @@
+using SurveyBackend.Application.Common;
 using SurveyBackend.Application.Interfaces.Identity;
 using SurveyBackend.Application.Interfaces.Persistence;
 using SurveyBackend.Domain.Enums;
@@ -69,7 +70,7 @@ public sealed class GetAttachmentQueryHandler : ICommandHandler<GetAttachmentQue
             return false;
         }
 
-        var now = DateTime.Now;
+        var now = TimeHelper.NowInTurkey;
         if (info.StartDate.HasValue && info.StartDate.Value > now)
         {
             return false;

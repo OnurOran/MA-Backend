@@ -1,3 +1,4 @@
+using SurveyBackend.Application.Common;
 using SurveyBackend.Application.Interfaces.Identity;
 using SurveyBackend.Application.Interfaces.Persistence;
 using SurveyBackend.Domain.Enums;
@@ -48,7 +49,7 @@ public sealed class StartParticipationCommandHandler : ICommandHandler<StartPart
             throw new UnauthorizedAccessException("Bu anket yalnızca dahili kullanıcılar için erişilebilir. Lütfen giriş yapın.");
         }
 
-        var now = DateTime.Now;
+        var now = TimeHelper.NowInTurkey;
         var isNewParticipant = false;
         Participant participant = null!;
 
@@ -162,7 +163,7 @@ public sealed class StartParticipationCommandHandler : ICommandHandler<StartPart
             }
         }
 
-        var now = DateTime.Now;
+        var now = TimeHelper.NowInTurkey;
 
         // Create participant from invitation
         var participant = Participant.CreateFromInvitation(invitation.Id);
@@ -182,7 +183,7 @@ public sealed class StartParticipationCommandHandler : ICommandHandler<StartPart
 
     private static bool IsAvailable(Survey survey)
     {
-        var now = DateTime.Now;
+        var now = TimeHelper.NowInTurkey;
 
         if (!survey.IsPublished)
         {

@@ -1,3 +1,4 @@
+using SurveyBackend.Application.Common;
 using SurveyBackend.Application.Interfaces.Persistence;
 using SurveyBackend.Application.Surveys.DTOs;
 
@@ -15,7 +16,7 @@ public sealed class GetGlobalDashboardQueryHandler : ICommandHandler<GetGlobalDa
     public async Task<GlobalDashboardDto> HandleAsync(GetGlobalDashboardQuery request, CancellationToken cancellationToken)
     {
         var surveyStats = await _surveyRepository.GetSurveyStatsAsync(cancellationToken);
-        var now = DateTime.Now;
+        var now = TimeHelper.NowInTurkey;
 
         var totalSurveys = surveyStats.Count;
         var activeSurveys = surveyStats.Count(s =>

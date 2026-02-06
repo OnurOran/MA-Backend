@@ -1,3 +1,4 @@
+using SurveyBackend.Application.Common;
 using SurveyBackend.Application.Interfaces.Identity;
 using SurveyBackend.Application.Interfaces.Persistence;
 using SurveyBackend.Application.Surveys.DTOs;
@@ -60,7 +61,7 @@ public sealed class GetSurveyQueryHandler : ICommandHandler<GetSurveyQuery, Surv
 
     private static bool IsAvailable(Survey survey)
     {
-        var now = DateTime.Now;
+        var now = TimeHelper.NowInTurkey;
 
         if (!survey.IsPublished)
         {

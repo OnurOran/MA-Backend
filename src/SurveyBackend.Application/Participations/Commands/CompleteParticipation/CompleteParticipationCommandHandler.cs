@@ -1,3 +1,4 @@
+using SurveyBackend.Application.Common;
 using SurveyBackend.Application.Interfaces.Persistence;
 using SurveyBackend.Domain.Enums;
 
@@ -29,7 +30,7 @@ public sealed class CompleteParticipationCommandHandler : ICommandHandler<Comple
 
         ValidateRequiredQuestions(survey, participation);
 
-        participation.Complete(DateTime.Now);
+        participation.Complete(TimeHelper.NowInTurkey);
 
         await _participationRepository.UpdateAsync(participation, cancellationToken);
 

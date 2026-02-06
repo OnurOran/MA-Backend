@@ -1,3 +1,4 @@
+using SurveyBackend.Application.Common;
 using SurveyBackend.Application.Interfaces.Identity;
 using SurveyBackend.Application.Interfaces.Persistence;
 using SurveyBackend.Application.Surveys.DTOs;
@@ -323,7 +324,7 @@ public sealed class GetSurveyReportQueryHandler : ICommandHandler<GetSurveyRepor
                     ParticipationId = a.ParticipationId,
                     ParticipantName = participantName,
                     TextValue = a.TextValue ?? string.Empty,
-                    SubmittedAt = participation?.CompletedAt ?? participation?.StartedAt ?? DateTime.Now
+                    SubmittedAt = participation?.CompletedAt ?? participation?.StartedAt ?? TimeHelper.NowInTurkey
                 };
             })
             .OrderByDescending(r => r.SubmittedAt)
@@ -375,7 +376,7 @@ public sealed class GetSurveyReportQueryHandler : ICommandHandler<GetSurveyRepor
                     FileName = a.Attachment.FileName,
                     ContentType = a.Attachment.ContentType,
                     SizeBytes = a.Attachment.SizeBytes,
-                    SubmittedAt = participation?.CompletedAt ?? participation?.StartedAt ?? DateTime.Now
+                    SubmittedAt = participation?.CompletedAt ?? participation?.StartedAt ?? TimeHelper.NowInTurkey
                 };
             })
             .OrderByDescending(r => r.SubmittedAt)
@@ -540,7 +541,7 @@ public sealed class GetSurveyReportQueryHandler : ICommandHandler<GetSurveyRepor
                             ParticipantName = participantName,
                             ScaleValue = ao.ScaleValue ?? 0,
                             Explanation = ao.Explanation ?? string.Empty,
-                            SubmittedAt = participation?.CompletedAt ?? participation?.StartedAt ?? DateTime.Now
+                            SubmittedAt = participation?.CompletedAt ?? participation?.StartedAt ?? TimeHelper.NowInTurkey
                         };
                     })
                     .OrderByDescending(e => e.SubmittedAt)

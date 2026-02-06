@@ -1,3 +1,4 @@
+using SurveyBackend.Application.Common;
 using SurveyBackend.Application.Interfaces.Identity;
 using SurveyBackend.Application.Interfaces.Persistence;
 using SurveyBackend.Application.Surveys.Queries.GetAttachment;
@@ -59,7 +60,7 @@ public sealed class GetAnswerAttachmentQueryHandler : ICommandHandler<GetAnswerA
             return false;
         }
 
-        var now = DateTime.Now;
+        var now = TimeHelper.NowInTurkey;
         if (info.StartDate.HasValue && info.StartDate.Value > now)
         {
             return false;
