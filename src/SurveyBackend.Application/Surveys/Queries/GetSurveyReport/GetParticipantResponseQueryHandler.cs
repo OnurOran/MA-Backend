@@ -33,11 +33,6 @@ public sealed class GetParticipantResponseQueryHandler : ICommandHandler<GetPart
             return null;
         }
 
-        if (survey.AccessType != AccessType.Internal && survey.AccessType != AccessType.InvitationOnly)
-        {
-            return null;
-        }
-
         if (!HasManagementAccess(survey))
         {
             return null;
@@ -69,6 +64,13 @@ public sealed class GetParticipantResponseQueryHandler : ICommandHandler<GetPart
                 var linkedInvitation = invitations.FirstOrDefault(i => i.Id == participation.Participant.InvitationId.Value);
                 participantName = linkedInvitation?.GetFullName();
             }
+        }
+        else if (survey.AccessType == AccessType.Public)
+        {
+            var allParticipations = await _participationRepository.GetBySurveyIdAsync(request.SurveyId, cancellationToken);
+            var orderedParticipations = allParticipations.OrderBy(p => p.StartedAt).ToList();
+            var index = orderedParticipations.FindIndex(p => p.Id == participation.Id);
+            participantName = index >= 0 ? $"Katılımcı #{index + 1}" : null;
         }
 
         var answers = participation.Answers

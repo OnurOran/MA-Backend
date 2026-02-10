@@ -81,8 +81,8 @@ public sealed class ExcelExportService : IExcelExportService
         }
         row++;
 
-        // Participants (internal only)
-        if (string.Equals(report.AccessType, "Internal", StringComparison.OrdinalIgnoreCase) && report.Participants.Count > 0)
+        // Participants
+        if (report.Participants.Count > 0)
         {
             ws.Cell(row, 1).Value = "Katılımcılar";
             ws.Cell(row, 1).Style.Font.Bold = true;

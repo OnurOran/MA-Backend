@@ -60,17 +60,25 @@ public sealed class GetSurveyReportQueryHandler : ICommandHandler<GetSurveyRepor
                 .ToDictionary(i => i.ParticipationId!.Value, i => i);
         }
 
-        var showParticipantNames = survey.AccessType == AccessType.Internal || survey.AccessType == AccessType.InvitationOnly;
-
-        var participantList = showParticipantNames
-            ? participations.Select(p => new ParticipantSummaryDto
+        // Build anonymous name map for public surveys
+        Dictionary<int, string>? anonymousNameMap = null;
+        if (survey.AccessType == AccessType.Public)
+        {
+            var orderedParticipations = participations.OrderBy(p => p.StartedAt).ToList();
+            anonymousNameMap = new Dictionary<int, string>();
+            for (int i = 0; i < orderedParticipations.Count; i++)
             {
-                ParticipationId = p.Id,
-                ParticipantName = GetParticipantName(p, survey.AccessType, invitationLookup),
-                IsCompleted = p.CompletedAt.HasValue,
-                StartedAt = p.StartedAt
-            }).ToList()
-            : new List<ParticipantSummaryDto>();
+                anonymousNameMap[orderedParticipations[i].Id] = $"Katılımcı #{i + 1}";
+            }
+        }
+
+        var participantList = participations.Select(p => new ParticipantSummaryDto
+        {
+            ParticipationId = p.Id,
+            ParticipantName = GetParticipantName(p, survey.AccessType, invitationLookup, anonymousNameMap),
+            IsCompleted = p.CompletedAt.HasValue,
+            StartedAt = p.StartedAt
+        }).ToList();
 
         var childQuestionIds = survey.Questions
             .SelectMany(q => q.Options)
@@ -81,7 +89,7 @@ public sealed class GetSurveyReportQueryHandler : ICommandHandler<GetSurveyRepor
         var questionReports = survey.Questions
             .Where(q => !childQuestionIds.Contains(q.Id))
             .OrderBy(q => q.Order)
-            .Select(q => BuildQuestionReport(q, participations, showParticipantNames, invitationLookup))
+            .Select(q => BuildQuestionReport(q, participations, invitationLookup, anonymousNameMap))
             .ToList();
 
         return new SurveyReportDto
@@ -112,8 +120,14 @@ public sealed class GetSurveyReportQueryHandler : ICommandHandler<GetSurveyRepor
     private static string? GetParticipantName(
         Participation participation,
         AccessType accessType,
-        Dictionary<int, SurveyInvitation>? invitationLookup)
+        Dictionary<int, SurveyInvitation>? invitationLookup,
+        Dictionary<int, string>? anonymousNameMap)
     {
+        if (accessType == AccessType.Public)
+        {
+            return anonymousNameMap?.TryGetValue(participation.Id, out var anonName) == true ? anonName : null;
+        }
+
         if (accessType == AccessType.Internal)
         {
             return participation.Participant?.LdapUsername ?? "Unknown";
@@ -142,9 +156,16 @@ public sealed class GetSurveyReportQueryHandler : ICommandHandler<GetSurveyRepor
 
     private static string? GetParticipantNameForParticipation(
         Participation participation,
-        Dictionary<int, SurveyInvitation>? invitationLookup)
+        Dictionary<int, SurveyInvitation>? invitationLookup,
+        Dictionary<int, string>? anonymousNameMap)
     {
-        // First check if we have an invitation lookup
+        // Check anonymous name map first (for public surveys)
+        if (anonymousNameMap != null && anonymousNameMap.TryGetValue(participation.Id, out var anonName))
+        {
+            return anonName;
+        }
+
+        // Check invitation lookup
         if (invitationLookup != null && invitationLookup.TryGetValue(participation.Id, out var invitation))
         {
             return invitation.GetFullName();
@@ -168,8 +189,8 @@ public sealed class GetSurveyReportQueryHandler : ICommandHandler<GetSurveyRepor
     private QuestionReportDto BuildQuestionReport(
         Question question,
         IReadOnlyList<Participation> participations,
-        bool showParticipantNames,
-        Dictionary<int, SurveyInvitation>? invitationLookup)
+        Dictionary<int, SurveyInvitation>? invitationLookup,
+        Dictionary<int, string>? anonymousNameMap)
     {
         var answers = participations
             .SelectMany(p => p.Answers)
@@ -184,10 +205,10 @@ public sealed class GetSurveyReportQueryHandler : ICommandHandler<GetSurveyRepor
         {
             QuestionType.SingleSelect => BuildSingleSelectReport(question, answers, totalResponses, responseRate),
             QuestionType.MultiSelect => BuildMultiSelectReport(question, answers, totalResponses, responseRate),
-            QuestionType.OpenText => BuildOpenTextReport(question, answers, participations, totalResponses, responseRate, showParticipantNames, invitationLookup),
-            QuestionType.FileUpload => BuildFileUploadReport(question, answers, participations, totalResponses, responseRate, showParticipantNames, invitationLookup),
-            QuestionType.Conditional => BuildConditionalReport(question, participations, totalResponses, responseRate, showParticipantNames, invitationLookup),
-            QuestionType.Matrix => BuildMatrixReport(question, answers, participations, totalResponses, responseRate, showParticipantNames, invitationLookup),
+            QuestionType.OpenText => BuildOpenTextReport(question, answers, participations, totalResponses, responseRate, invitationLookup, anonymousNameMap),
+            QuestionType.FileUpload => BuildFileUploadReport(question, answers, participations, totalResponses, responseRate, invitationLookup, anonymousNameMap),
+            QuestionType.Conditional => BuildConditionalReport(question, participations, totalResponses, responseRate, invitationLookup, anonymousNameMap),
+            QuestionType.Matrix => BuildMatrixReport(question, answers, participations, totalResponses, responseRate, invitationLookup, anonymousNameMap),
             _ => new QuestionReportDto
             {
                 QuestionId = question.Id,
@@ -307,16 +328,16 @@ public sealed class GetSurveyReportQueryHandler : ICommandHandler<GetSurveyRepor
         IReadOnlyList<Participation> participations,
         int totalResponses,
         double responseRate,
-        bool showParticipantNames,
-        Dictionary<int, SurveyInvitation>? invitationLookup)
+        Dictionary<int, SurveyInvitation>? invitationLookup,
+        Dictionary<int, string>? anonymousNameMap)
     {
         var textResponses = answers
             .Where(a => !string.IsNullOrWhiteSpace(a.TextValue))
             .Select(a =>
             {
                 var participation = participations.FirstOrDefault(p => p.Id == a.ParticipationId);
-                var participantName = showParticipantNames && participation != null
-                    ? GetParticipantNameForParticipation(participation, invitationLookup)
+                var participantName = participation != null
+                    ? GetParticipantNameForParticipation(participation, invitationLookup, anonymousNameMap)
                     : null;
 
                 return new TextResponseDto
@@ -355,16 +376,16 @@ public sealed class GetSurveyReportQueryHandler : ICommandHandler<GetSurveyRepor
         IReadOnlyList<Participation> participations,
         int totalResponses,
         double responseRate,
-        bool showParticipantNames,
-        Dictionary<int, SurveyInvitation>? invitationLookup)
+        Dictionary<int, SurveyInvitation>? invitationLookup,
+        Dictionary<int, string>? anonymousNameMap)
     {
         var fileResponses = answers
             .Where(a => a.Attachment != null)
             .Select(a =>
             {
                 var participation = participations.FirstOrDefault(p => p.Id == a.ParticipationId);
-                var participantName = showParticipantNames && participation != null
-                    ? GetParticipantNameForParticipation(participation, invitationLookup)
+                var participantName = participation != null
+                    ? GetParticipantNameForParticipation(participation, invitationLookup, anonymousNameMap)
                     : null;
 
                 return new FileResponseDto
@@ -406,8 +427,8 @@ public sealed class GetSurveyReportQueryHandler : ICommandHandler<GetSurveyRepor
         IReadOnlyList<Participation> participations,
         int totalResponses,
         double responseRate,
-        bool showParticipantNames,
-        Dictionary<int, SurveyInvitation>? invitationLookup)
+        Dictionary<int, SurveyInvitation>? invitationLookup,
+        Dictionary<int, string>? anonymousNameMap)
     {
 
         var conditionalResults = question.Options
@@ -424,7 +445,7 @@ public sealed class GetSurveyReportQueryHandler : ICommandHandler<GetSurveyRepor
 
                 var childQuestionReports = option.DependentQuestions
                     .OrderBy(dq => dq.ChildQuestion.Order)
-                    .Select(dq => BuildQuestionReport(dq.ChildQuestion, participantsWhoSelectedOption, showParticipantNames, invitationLookup))
+                    .Select(dq => BuildQuestionReport(dq.ChildQuestion, participantsWhoSelectedOption, invitationLookup, anonymousNameMap))
                     .ToList();
 
                 return new ConditionalBranchResultDto
@@ -492,8 +513,8 @@ public sealed class GetSurveyReportQueryHandler : ICommandHandler<GetSurveyRepor
         IReadOnlyList<Participation> participations,
         int totalResponses,
         double responseRate,
-        bool showParticipantNames,
-        Dictionary<int, SurveyInvitation>? invitationLookup)
+        Dictionary<int, SurveyInvitation>? invitationLookup,
+        Dictionary<int, string>? anonymousNameMap)
     {
         var matrixRowResults = question.Options
             .OrderBy(o => o.Order)
@@ -531,8 +552,8 @@ public sealed class GetSurveyReportQueryHandler : ICommandHandler<GetSurveyRepor
                         var participation = answer != null
                             ? participations.FirstOrDefault(p => p.Id == answer.ParticipationId)
                             : null;
-                        var participantName = showParticipantNames && participation != null
-                            ? GetParticipantNameForParticipation(participation, invitationLookup)
+                        var participantName = participation != null
+                            ? GetParticipantNameForParticipation(participation, invitationLookup, anonymousNameMap)
                             : null;
 
                         return new MatrixRowExplanationDto
