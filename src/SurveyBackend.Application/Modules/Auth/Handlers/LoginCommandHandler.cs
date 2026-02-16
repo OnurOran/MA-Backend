@@ -67,13 +67,26 @@ public sealed class LoginCommandHandler : ICommandHandler<LoginCommand, AuthToke
                 throw new UnauthorizedAccessException("Kullanıcı doğrulanamadı.");
             }
 
-            var (departmentName, externalIdentifier) = NormalizeDepartment(ldapUser.DepartmentName);
-
-            var department = await _departmentRepository.GetByExternalIdentifierAsync(externalIdentifier, cancellationToken);
-            if (department is null)
+            Department department;
+            if (string.IsNullOrWhiteSpace(ldapUser.DepartmentName))
             {
-                department = Department.Create(departmentName, externalIdentifier);
-                await _departmentRepository.AddAsync(department, cancellationToken);
+                var superAdmin = await _userRepository.GetAnySuperAdminAsync(cancellationToken);
+                if (superAdmin is null)
+                {
+                    throw new UnauthorizedAccessException("Kullanıcı için geçerli bir departman bulunamadı ve yönetici departmanı belirlenemedi.");
+                }
+                department = await _departmentRepository.GetByIdAsync(superAdmin.DepartmentId, cancellationToken)
+                    ?? throw new UnauthorizedAccessException("Yönetici departmanı bulunamadı.");
+            }
+            else
+            {
+                var (departmentName, externalIdentifier) = NormalizeDepartment(ldapUser.DepartmentName);
+                department = await _departmentRepository.GetByExternalIdentifierAsync(externalIdentifier, cancellationToken);
+                if (department is null)
+                {
+                    department = Department.Create(departmentName, externalIdentifier);
+                    await _departmentRepository.AddAsync(department, cancellationToken);
+                }
             }
 
             var existingUser = await _userRepository.GetByUsernameAsync(ldapUser.Username, cancellationToken);
